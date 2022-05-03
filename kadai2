@@ -1,0 +1,24 @@
+-- 課題２
+-- 後ろ7日間の合計のsales_quantityとその計算対象となった日数をカウントするテーブル
+WITH amount_sales_quantity AS (
+    SELECT
+        sales_date,
+        store_code,
+        item_code,
+        SUM(sales_quantity) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code ROWS BETWEEN CURRENT ROW AND 6 FOLLOWING ) AS sales_quantity,
+        COUNT(sales_quantity) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code ROWS BETWEEN CURRENT ROW AND 6 FOLLOWING) AS day_count
+    FROM sub1.kadai_1 
+    ORDER BY sales_date , store_code,item_code
+)
+-- 作成したテーブルのうち、日数のカウントが７になっているレコードを抽出
+SELECT 
+    sales_date,
+    store_code,
+    item_code,
+    sales_quantity  
+FROM amount_sales_quantity
+WHERE day_count = 7
+AND sales_date <= '2020-12-31'
+
+
+    
