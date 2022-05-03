@@ -1,0 +1,72 @@
+-- 課題1
+
+-- カレンダーの作成（期間は、20200101から20210131）
+WITH calendar AS (
+  SELECT *
+  FROM
+      UNNEST(
+          GENERATE_DATE_ARRAY(
+              '2020-01-01',
+              '2021-01-31',
+              INTERVAL 1 DAY)
+      ) AS date
+),
+-- 作成したカレンダーにショップ情報と商品情報を追加したテーブル
+calendar_master AS (
+  SELECT * 
+  FROM calendar
+  CROSS JOIN  (
+    SELECT store_code FROM sub1.m_store
+  ) 
+  CROSS JOIN  (
+    SELECT item_code FROM sub1.m_item
+  ) 
+  ORDER BY date,store_code,item_code
+) ,
+-- 売り上げ数量を日ごと、ショップごと、商品ごとにまとめたテーブル
+sales_amount AS (
+  SELECT 
+    date(format_date('%F',sales_datetime)) AS sales_date,
+    store_code,
+    item_code,
+    SUM(sales_quantity) AS sales_quantity
+  FROM sub1.t_sales AS t_sales
+  GROUP BY sales_date,store_code,item_code
+  ORDER BY sales_date,store_code,item_code
+),
+-- 商品の販売開始、販売停止年月日をまとめたテーブル
+item_calendar AS (
+  SELECT 
+    item_code,
+    sales_start_date,
+    cast(replace(m_item.sales_end_date,'null','2021-02-01') as date) as sales_end_date
+  FROM sub1.m_item  AS m_item
+),
+-- 作成したカレンダーの日にち、ショップ、商品ごとにまとめ、商品販売開始終了テーブルと結合した全日程のショップ商品のテーブル
+all_lst AS (
+  SELECT 
+    date AS sales_date,
+    calendar_master.store_code,
+    calendar_master.item_code,
+    IFNULL(sales_amount.sales_quantity,0) AS sales_quantity,
+    item_calendar.sales_start_date,
+    item_calendar.sales_end_date
+  FROM calendar_master
+  LEFT OUTER JOIN sales_amount
+    ON calendar_master.date = sales_amount.sales_date
+    AND calendar_master.store_code = sales_amount.store_code
+    AND calendar_master.item_code = sales_amount.item_code
+  LEFT OUTER JOIN item_calendar
+    ON calendar_master.item_code = item_calendar.item_code
+  ORDER BY sales_date,store_code,item_code
+)
+
+-- 当該年月日が販売中の期間にあたるものに絞り込んだテーブル
+SELECT 
+  sales_date,
+  store_code,
+  item_code,
+  sales_quantity
+FROM all_lst 
+WHERE sales_date >= sales_start_date
+  AND sales_date <= sales_end_date
