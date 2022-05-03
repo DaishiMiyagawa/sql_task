@@ -1,0 +1,49 @@
+--課題３
+-- lag1、lag7、最小、最大、標準偏差のカラムを追加したテーブルの作成
+WITH diff_lst AS(
+  SELECT 
+  sales_date,
+  store_code,
+  item_code,
+  sales_quantity,
+  LAG(sales_quantity,1) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code) AS sales_quantity_lag1,
+  LAG(sales_quantity,7) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code) AS sales_quantity_lag7,
+  MIN(sales_quantity) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING) AS sales_quantity_agg7_min,
+  MAX(sales_quantity) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING) AS sales_quantity_agg7_max,
+  stddev_pop(sales_quantity) OVER(PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING) AS sales_quantity_agg7_stddev
+  FROM sub1.kadai_1
+  ORDER BY sales_date,store_code,item_code
+),
+-- 7日間の合計したカラムを追加したテーブルの作成
+sum_lst AS (  
+  SELECT 
+  sales_date,
+  store_code,
+  item_code,
+  AVG(SUM(sales_quantity)) OVER (PARTITION BY store_code,item_code ORDER BY sales_date,store_code,item_code ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING) AS sales_quantity_agg7_avg
+  FROM sub1.kadai_1
+  GROUP BY sales_date,store_code,item_code
+  ORDER BY sales_date,store_code,item_code
+)
+
+-- 作成した２つのテーブルをマージし、作成すべきテーブルの作成
+SELECT 
+  diff_lst.sales_date,
+  diff_lst.store_code,
+  diff_lst.item_code,
+  sales_quantity,
+  sales_quantity_lag1,
+  sales_quantity_lag7,
+  sales_quantity_agg7_min,
+  sales_quantity_agg7_max,
+  sales_quantity_agg7_avg,
+  sales_quantity_agg7_stddev
+FROM diff_lst
+LEFT OUTER JOIN sum_lst
+ON diff_lst.sales_date = sum_lst.sales_date
+AND diff_lst.store_code = sum_lst.store_code
+AND diff_lst.item_code = sum_lst.item_code
+WHERE diff_lst.sales_date <= '2020-12-31'
+ORDER BY diff_lst.sales_date,diff_lst.store_code ,diff_lst.item_code
+
+
