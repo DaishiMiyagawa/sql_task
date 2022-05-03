@@ -1,0 +1,38 @@
+--課題４
+-- date_store_item_stockquantityとm_itemを２つの結合条件に基づき結合させる
+-- m_itemについては、結合条件の商品価格の期間でにするため、該当価格の期間終カラムを追加
+SELECT 
+  stock.sales_date,
+  stock.store_code,
+  stock.item_code,
+  stock.stock_quantity,
+  item.price_set_date,
+  item.unit_price,
+  item.price_set_date_after
+FROM sub2.date_store_item_stockquantity AS stock
+LEFT OUTER JOIN (
+SELECT *,
+  LEAD(price_set_date,1) OVER (PARTITION BY item_code ORDER BY item_code,price_set_date) AS price_set_date_after
+FROM sub2.m_item 
+) AS item
+ON
+-- 結合条件１
+(item.price_set_date_after IS NOT NULL 
+AND stock.item_code = item.item_code
+AND stock.sales_date >= item.price_set_date
+AND stock.sales_date < item.price_set_date_after)
+OR
+-- 結合条件２
+(item.price_set_date_after IS  NULL 
+AND stock.item_code = item.item_code
+AND stock.sales_date >= item.price_set_date)
+
+WHERE sales_date <= '2020-12-31'
+ORDER BY sales_date , store_code
+
+
+
+
+
+
+
